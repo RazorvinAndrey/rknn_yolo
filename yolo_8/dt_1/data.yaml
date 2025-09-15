@@ -1,0 +1,13 @@
+train: /rknn_yolo/yolo_8/dt_1/train/images
+val: /rknn_yolo/yolo_8/dt_1/valid/images
+test: /rknn_yolo/yolo_8/dt_1/test/images
+
+nc: 1
+names: ['planedrone']
+
+roboflow:
+  workspace: dronefpv
+  project: drone_detected
+  version: 6
+  license: CC BY 4.0
+  url: https://universe.roboflow.com/dronefpv/drone_detected/dataset/6

@@ -1,0 +1,8 @@
+train: /home/robot/uni_yolo/YOLOv6/data_1/images/train
+val: /home/robot/uni_yolo/YOLOv6/data_1/images/valid
+test: /home/robot/uni_yolo/YOLOv6/data_1/images/test
+
+is_coco: False
+
+nc: 1
+names: ['planedrone']
