@@ -442,4 +442,4 @@
 
 После успешной конвертации получаем веса yolov6_rk.rknn, которые полностью готовы для запуска на одноплатном компьютере с NPU rk3588.
 
-Для проверки на Orange Pi 5 Plus нужно скопировать веса .rknn и запустить скрипт yolov6_video_npu.py из папки ./rknn_yolo/yolo_6/python 
+Для проверки на Orange Pi 5 Plus нужно скопировать веса .rknn и запустить скрипт yolov6_video.py из папки ./rknn_yolo/yolo_6/python 
