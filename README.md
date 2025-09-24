@@ -339,3 +339,107 @@
     python convert.py best.onnx rk3588 i8
 
 После этого, полученную модель best.rknn нужно перенести на одноплатник с NPU и запустить на примере фото или видео.
+
+## 5.  Обучение и запуск на NPU собственных моделей YOLO
+
+Рассмотрим пример обучения YOLOv6 на ПК x86 Linux. Скачаем репозиторий YOLOv6 рядом с папкой проекта
+
+    git clone https://github.com/meituan/YOLOv6
+    cd YOLOv6
+    pip install -r requirements.txt
+
+Структура каталога:
+
+    Projects
+    ├── rknn-toolkit2
+    ├── rknn_model_zoo
+    ├── rknn_yolo
+    └── YOLOv6
+      ├── yolov_6
+      ├── deploy
+      └── ...
+
+### Подготовка датасета для обучения модели YOLOv6
+
+Далее нужно подготовить датасет удобным способом, например на RoboFlow [туториал тут](https://blog.roboflow.com/tips-for-how-to-label-images/)
+
+Структура каталога, которую ожидает YOLOv6, выглядит следующим образом:
+
+    # image directory
+    path/to/data/images/train/im0.jpg
+    path/to/data/images/val/im1.jpg
+    path/to/data/images/test/im2.jpg
+
+    # label directory
+    path/to/data/labels/train/im0.txt
+    path/to/data/labels/val/im1.txt
+    path/to/data/labels/test/im2.txt
+
+Структура каталога предполагает наличие родительского каталога изображений, в котором разделы train, val и test содержат соответствующие наборы изображений. Метки следуют аналогичному шаблону.
+
+Соответствующий файл YOLOv6 YAML имеет следующую структуру:
+
+    train: ./images/train
+    val: ./images/valid
+    test: ./images/test
+
+    nc: 12
+    names: ['black-bishop', 'black-king', 'black-knight', 'black-pawn', 'black-queen', 'black-rook', 'white-bishop', 'white-king', 'white-knight', 'white-pawn', 'white-queen', 'white-rook']
+
+Эти файлы можно сформировать через RoboFlow следующим образом:
+
+добавлять аннотации практически любого типа (COCO JSON, VOC XML, Scale и т. д.) независимо от того, где вы их аннотировали. Roboflow автоматически сопоставит изображения с аннотациями, а также выполнит контроль качества на основе правил (например, аннотации случайно окажутся за краями изображения). 
+
+Теперь, когда у нас есть изображения и аннотации, мы можем сгенерировать версию набора данных. (Если какие-либо изображения всё ещё требуют аннотаций, смело добавляйте их на этом этапе.) При генерации версии вы можете добавить предварительную обработку и аугментацию. Это полностью на ваше усмотрение — наше руководство по YOLOv6 не требует этого (хотя вы можете добиться прироста производительности).
+
+![alt text](/media/image_2.png)
+
+После создания версии набора данных у нас появляется размещенный набор данных, который мы можем загрузить непосредственно в наш блокнот для удобства обучения.
+
+Просто нажмите «Экспорт» и выберите формат набора данных meituan/YOLOv6 .
+
+![alt text](/media/image_1.png)
+
+После скачивания и распаковки папки с фото и анотациями, нужно изменить абсолютные пути до папок с фото в data.yaml
+
+![alt text](/media/image_3.png)
+
+### Обучения модели YOLOv6 на ПК x86
+
+Нужно перейти в папку /YOLOv6
+
+    python tools/train.py --batch 32 --conf configs/yolov6n.py --data data/data.yaml --device 0 --epochs 100 --img-size 640
+
+тут указано --device 0, чтобы обучение запускалось на GPU.
+
+После успешного завершения программы веса нашей модели будут находиться в директории  /runs/train с последним индексом запуска (при каждом запуске trane создается новая папка с результатами). В итоге мы получаем файл best_ckpt.pt
+
+### Преобразование в формат ONNX модели .pt
+
+Находясь в папке /YOLOv6 запустить скрипт преобразования:
+
+    python deploy/ONNX/export_onnx.py --weights runs/train/exp/weights/best_ckpt.pt --device 0 --simplify --img 640 --batch-size 1
+
+После этого нужно конвертировать их в другой формат выхода, адаптированный для rk. Для этого нужен скрипт convert_onnx.py из этого репозитория в папке ./rknn_yolo/yolo_6/python
+
+    python convert_onnx_lst.py --in yolov6.onnx --out yolov6_rk.onnx --bbox "/detect/reg_preds.0/Conv_output_0,/detect/reg_preds.1/Conv_output_0,/detect/reg_preds.2/Conv_output_0" --cls "/detect/cls_preds.0/Conv_output_0,/detect/cls_preds.1/Conv_output_0,/detect/cls_preds.2/Conv_output_0"
+
+После этого веса yolov6_rk.onnx можно преобразовать в формат RKNN с квантизацией на изображениях из датасета, например из папки train. Для квантизации нужно записать пути до изображений в текстовый файл и в крипте конвертации указать путь до него. Для записи имен фото в файл используется скрипт ./rknn_yolo/rasmetka.py в который нужно указать путь до папки с фото.
+
+    IMG_PATH = "YOLOv6/data/train/images"
+
+После этого создается файл data_subset.txt где построчно записаны имена файлов с фото.
+
+Далее нужно указать путь до этого файла data_subset.txt внутри скрипта для конвертации в RKNN convert.py:
+
+    DATASET_PATH = '/home/robot/uni_yolo/yolov8/data_subset.txt'
+
+После переносим файл с моделью ONNX в папку rknn_model_zoo/examples/yolov6/model запускаем скрипт конвертации:
+
+    cd rknn_model_zoo/examples/yolov6/python
+    
+    python convert.py ../model/yolov6_rk.onnx rk3588 i8 ../model/yolov6_rk.rknn
+
+После успешной конвертации получаем веса yolov6_rk.rknn, которые полностью готовы для запуска на одноплатном компьютере с NPU rk3588.
+
+Для проверки на Orange Pi 5 Plus нужно скопировать веса .rknn и запустить скрипт yolov6_video_npu.py из папки ./rknn_yolo/yolo_6/python 
