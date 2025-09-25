@@ -342,7 +342,7 @@
 
 ## 5.  Обучение и запуск на NPU собственных моделей YOLO
 
-Рассмотрим пример обучения YOLOv6 на ПК x86 Linux. Скачаем репозиторий YOLOv6 рядом с папкой проекта
+Рассмотрим пример обучения YOLOv6 на ПК x86 Linux. Статья про обучение в блокноте юпитер [тут](https://blog.roboflow.com/how-to-train-yolov6-on-a-custom-dataset/). Скачаем репозиторий YOLOv6 рядом с папкой проекта
 
     git clone https://github.com/meituan/YOLOv6
     cd YOLOv6
@@ -414,7 +414,7 @@
 
 После успешного завершения программы веса нашей модели будут находиться в директории  /runs/train с последним индексом запуска (при каждом запуске trane создается новая папка с результатами). В итоге мы получаем файл best_ckpt.pt
 
-### Преобразование в формат ONNX модели .pt
+### Преобразование модели .pt в формат ONNX
 
 Находясь в папке /YOLOv6 запустить скрипт преобразования:
 
@@ -424,15 +424,17 @@
 
     python convert_onnx_lst.py --in yolov6.onnx --out yolov6_rk.onnx --bbox "/detect/reg_preds.0/Conv_output_0,/detect/reg_preds.1/Conv_output_0,/detect/reg_preds.2/Conv_output_0" --cls "/detect/cls_preds.0/Conv_output_0,/detect/cls_preds.1/Conv_output_0,/detect/cls_preds.2/Conv_output_0"
 
-После этого веса yolov6_rk.onnx можно преобразовать в формат RKNN с квантизацией на изображениях из датасета, например из папки train. Для квантизации нужно записать пути до изображений в текстовый файл и в крипте конвертации указать путь до него. Для записи имен фото в файл используется скрипт ./rknn_yolo/rasmetka.py в который нужно указать путь до папки с фото.
+После этого веса yolov6_rk.onnx можно преобразовать в формат RKNN с квантизацией на изображениях из датасета, например из папки train. Для квантизации нужно записать пути до изображений в текстовый файл и в крипте конвертации указать путь до него. Для записи имен фото в файл используется скрипт ./rknn_yolo/yolo_6/python/rasmetka.py в который нужно указать путь до папки с фото.
 
     IMG_PATH = "YOLOv6/data/train/images"
 
 После этого создается файл data_subset.txt где построчно записаны имена файлов с фото.
 
-Далее нужно указать путь до этого файла data_subset.txt внутри скрипта для конвертации в RKNN convert.py:
+Далее нужно указать путь до этого файла data_subset.txt внутри скрипта для конвертации в RKNN convert.py, который находиться в репозитории rknn_model_zoo, путь: rknn_model_zoo/examples/yolov6/python. Нужно изменить строчку со своим путем до файла:
 
     DATASET_PATH = '/home/robot/uni_yolo/yolov8/data_subset.txt'
+
+- этот скрипт convert.py так же есть в этом репозитории в папке ./rknn_yolo/yolo_6/python.
 
 После переносим файл с моделью ONNX в папку rknn_model_zoo/examples/yolov6/model запускаем скрипт конвертации:
 
